@@ -5,7 +5,9 @@ import datetime, json, email.utils, threading
 config = {
     'HOST_NAME': '127.0.0.1',
     'BIND_PORT': 20100,
-    'MAX_REQUEST_LEN': 1024
+    'MAX_REQUEST_LEN': 1024,
+    'BUFFER_SIZE': 100000000,
+    'CONNECTION_TIMEOUT' : 20
 }
 
 class Server:
@@ -38,44 +40,44 @@ class Server:
     
     def proxy_thread(self, client_socket, client_address):
         request = client_socket.recv(config['MAX_REQUEST_LEN'])
-        print request
-     #    first_line = request.split('\n')[0]
-     #    url = first_line.split(' ')[1]
-     #    http_pos = url.find("://")
-        # if (http_pos==-1):
-        #     temp = url
-        # else:
-        #     temp = url[(http_pos+3):]
+        first_line = request.split('\n')[0]
+        url = first_line.split(' ')[1]
+        http_pos = url.find("://")
+        temp_index = 0
+        if (http_pos==-1):
+            temp_index = 0
+        else:
+            temp_index = http_pos+3
+        temp = url[temp_index:]
+        port_pos = temp.find(":")
+        webserver_pos = temp.find("/")
 
-        # port_pos = temp.find(":")
-        # webserver_pos = temp.find("/")
+        if webserver_pos == -1:
+            webserver_pos = len(temp)
 
-        # if webserver_pos == -1:
-        #     webserver_pos = len(temp)
+        webserver = ""
+        port = -1
+        if (port_pos == -1 or webserver_pos < port_pos): 
+            port = 80 
+            webserver = temp[:webserver_pos] 
 
-        # webserver = ""
-        # port = -1
-        # if (port_pos==-1 or webserver_pos < port_pos): 
-        #     port = 80 
-        #     webserver = temp[:webserver_pos] 
+        else:
+            # port = int((temp[(port_pos+1):])[:webserver_pos-port_pos-1])
+            port = int(temp[port_pos + 1 : webserver_pos])
+            webserver = temp[:port_pos]
 
-        # else:
-        #     port = int((temp[(port_pos+1):])[:webserver_pos-port_pos-1])
-        #     webserver = temp[:port_pos]
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+        s.settimeout(config['CONNECTION_TIMEOUT'])
+        s.connect((webserver, port))
+        s.sendall(request)
 
-        # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-        # s.settimeout(config['CONNECTION_TIMEOUT'])
-        # s.connect((webserver, port))
-        # s.sendall(request)
-
-        # while 1:
-     #    # receive data from web server
-     #    data = s.recv(config['MAX_REQUEST_LEN'])
-
-     #    if (len(data) > 0):
-     #        client_socket.send(data) # send to browser/client
-     #    else:
-     #        break
+        while True:
+            # receive data from web server
+            data = s.recv(config['BUFFER_SIZE'])
+            if (len(data) > 0):
+                client_socket.send(data) # send to browser/client
+            else:
+                break
 
     def shutdown(self):
         print "shutdown called"
