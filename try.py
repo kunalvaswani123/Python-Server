@@ -46,7 +46,6 @@ class Server:
             self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.server_socket.bind((config['HOST_NAME'], config['BIND_PORT']))
             self.server_socket.listen(100)
-            # self.__clients = {}
         except Exception as e:
             '''error functionality in initializing socket'''
             print e
@@ -87,7 +86,6 @@ class Server:
             webserver = temp[:webserver_pos] 
 
         else:
-            # port = int((temp[(port_pos+1):])[:webserver_pos-port_pos-1])
             port = int(temp[port_pos + 1 : webserver_pos])
             webserver = temp[:port_pos]
 
@@ -99,15 +97,73 @@ class Server:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
         s.settimeout(config['CONNECTION_TIMEOUT'])
         s.connect((webserver, port))
-        s.sendall(request)
+        # s.sendall(request)
 
-        while True:
+        # while True:
 
-            data = s.recv(config['BUFFER_SIZE'])
-            if (len(data) > 0):
-	            client_socket.send(data)
-            else:
-                break
+        #     data = s.recv(config['BUFFER_SIZE'])
+        #     if (len(data) > 0):
+	       #      client_socket.send(data)
+        #     else:
+       
+        #         break
+        try:
+        	fname = temp.split('/')[1]
+        except IndexError:
+        	fname = '/'
+
+        if fname in os.listdir(Cache):
+        	t1 = ""
+        	t1 = t1 + "GET /"
+        	t1 = t1 + fname
+        	t1 = t1 + " HTTP/1.1\r\nIf-Modified-Since: "
+        	t1 = t1 + time.ctime(os.path.getmtime(Cache + fname))
+        	t1 = t1 + " \r\n\r\n"
+        	s.send(t1)
+        else:
+        	t1 = ""
+        	t1 = t1 + "GET "
+        	t1 = t1 + fname
+        	t1 = t1 + " HTTP/1.1\r\n\r\n"
+        	s.send(t1)
+
+        response = s.recv(config['MAX_REQUEST_LEN'])
+
+        current_time = time.strptime(time.ctime(), "%a %b %d %H:%M:%S %Y")
+        logs[url].append({
+        	"mtime" : current_time,
+        	"data" : response
+        	})
+        if(len(logs[url]) > 4):
+        	del logs[url][0]
+
+        if response.find("304") >= 0:
+        	t2 = Cache + fname
+        	file_pointer = open(os.path(t2), 'rb')
+        	temp_var = file_pointer.read(config['MAX_REQUEST_LEN'])
+        	while(temp_var):
+        		client_socket.send(temp_var)
+        		temp_var = file_pointer.read(config['MAX_REQUEST_LEN'])
+        	file_pointer.close()
+        
+        elif response.find("200") >= 0:
+        	t2 = Cache + fname
+        	flag = 0
+    		ctime = time.strptime(time.ctime(), "%a %b %d %H:%M:%S %Y")	
+        	if(ctime - logs[url][-3] < 300):
+        		flag = 1
+        	file_pointer = open(os.path(t2), 'wb')
+        	while true:	
+        		if(len(response) == 0):
+        			break
+        		if(flag == 1):
+        			file_pointer.write(response)
+        		client_socket.send(response)
+        		response = s.recv(config['MAX_REQUEST_LEN'])
+        	file_pointer.close()		
+
+        s.close()
+        client_socket.close()	
 
     def shutdown(self):
         print "shutdown called"
@@ -117,28 +173,55 @@ class Server:
         self.client_name += 1
         return self.client_name
 
-    def cache_delete():
+    # def cache_delete():
 
-    	min_time = min(os.path.getmtime(Cache + "/" + files) for files in os.listdir(Cache))
-    	last_file = ""
-    	for files in os.listdir(Cache):
-    		if(os.path.getmtime(Cache + "/" + files) == min_time)
-    			last_file = files[0]
+    # 	min_time = min(os.path.getmtime(Cache + "/" + files) for files in os.listdir(Cache))
+    # 	last_file = ""
+    # 	for files in os.listdir(Cache):
+    # 		if(os.path.getmtime(Cache + "/" + files) == min_time)
+    # 			last_file = files[0]
 
-    	os.remove(Cache + "/" + last_file)		
+    # 	os.remove(Cache + "/" + last_file)		
     
-    def cache_file_info(fileurl):
+    # def cache_file_info(fileurl):
 
-    	if(fileurl[0] == '/'):
-    		fileurl = fileurl[1:]
+    # 	if(fileurl[0] == '/'):
+    # 		fileurl = fileurl[1:]
 
-    	fileurl = fileurl.replace("/", "__")
-    	path = Cache + "/" + fileurl
+    # 	fileurl = fileurl.replace("/", "__")
+    # 	path = Cache + "/" + fileurl
 
-    	if(os.path.isfile(path)):
-        	ltime = time.strptime(time.ctime(os.path.getmtime(path)), "%a %b %d %H:%M:%S %Y")
-        	return path, ltime
-    	else:
-    		return path, None
+    # 	if(os.path.isfile(path)):
+    #     	ltime = time.strptime(time.ctime(os.path.getmtime(path)), "%a %b %d %H:%M:%S %Y")
+    #     	return path, ltime
+    # 	else:
+    # 		return path, None
 
+    # def cache_file_info(fileurl):
+
+    # 	if(fileurl[0] == '/'):
+    # 		fileurl = fileurl[1:]
+
+    # 	fileurl = fileurl.replace("/", "__")
+    # 	path = Cache + "/" + fileurl
+
+    # 	if(os.path.isfile(path)):
+    #     	ltime = time.strptime(time.ctime(os.path.getmtime(path)), "%a %b %d %H:%M:%S %Y")
+    #     	return path, ltime
+    # 	else:
+    # 		return path, None	
+
+    # def add_url(url, client_address):
+    	
+    # 	url = url.replace("/", "__")
+    # 	if url in logs:
+    # 		current_time = time.strptime(time.ctime(), "%a %b %d %H:%M:%S %Y")
+    # 		logs[url].append({
+    # 			"mtime" : current_time,
+    # 			"client" : json.dumps(client_address)
+    # 			})
+    # 		if(len(logs[url]) > 3):
+    # 			del logs[url][0]
+
+logs = {}
 newserver = Server()
