@@ -14,6 +14,15 @@ class Server:
 
     def __init__(self):
 
+    	Cache = "./cache"
+
+    	if not os.path.isdir(Cache):
+    		os.makedirs(Cache)
+
+        for files in os.listdir(Cache):
+        	temp = Cache + "/" + files
+        	os.remove(files)
+        
         self.client_name = 1
         
         try:
@@ -39,6 +48,7 @@ class Server:
             thread_.start()
     
     def proxy_thread(self, client_socket, client_address):
+
         request = client_socket.recv(config['MAX_REQUEST_LEN'])
         first_line = request.split('\n')[0]
         url = first_line.split(' ')[1]
@@ -47,7 +57,7 @@ class Server:
         if (http_pos==-1):
             temp_index = 0
         else:
-            temp_index = http_pos+3
+            temp_index = http_pos + 3
         temp = url[temp_index:]
         port_pos = temp.find(":")
         webserver_pos = temp.find("/")
@@ -86,5 +96,29 @@ class Server:
     def _getClientName(self):
         self.client_name += 1
         return self.client_name
+
+    def cache_delete():
+
+    	min_time = min(os.path.getmtime(Cache + "/" + files) for files in os.listdir(Cache))
+    	last_file = ""
+    	for files in os.listdir(Cache):
+    		if(os.path.getmtime(Cache + "/" + files) == min_time)
+    			last_file = files[0]
+
+    	os.remove(Cache + "/" + last_file)		
+    
+    def cache_file_info(fileurl):
+
+    	if(fileurl[0] == '/'):
+    		fileurl = fileurl[1:]
+
+    	fileurl = fileurl.replace("/", "__")
+    	path = Cache + "/" + fileurl
+
+    	if(os.path.isfile(path)):
+        	ltime = time.strptime(time.ctime(os.path.getmtime(path)), "%a %b %d %H:%M:%S %Y")
+        	return path, ltime
+    	else:
+    		return path, None	
 
 newserver = Server()
