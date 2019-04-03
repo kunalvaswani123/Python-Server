@@ -1,5 +1,5 @@
 import base64, copy, thread, signal
-import socket, sys, os, time
+import socket, sys, os, time, struct
 import datetime, json, email.utils, threading
 
 config = {
@@ -9,6 +9,21 @@ config = {
     'BUFFER_SIZE': 100000000,
     'CONNECTION_TIMEOUT' : 20
 }
+
+file = open("blacklist.txt","r")
+blocked_files = file.readlines()
+blocked_list = []
+
+for ips in blocked_files:
+	(ip, cidr) = ips.split('/')
+	cidr = int(cidr) 
+	host_bits = 32 - cidr
+	i = struct.unpack('>I', socket.inet_aton(ip))[0]
+	start = (i >> host_bits) << host_bits
+	end = start | ((1 << host_bits))
+	end += 1
+	for i in range(start, end):
+	    blocked_list.append(socket.inet_ntoa(struct.pack('>I',i)))
 
 class Server:
 
@@ -46,7 +61,7 @@ class Server:
                 args = (client_socket, client_address))
             thread_.setDaemon(True)
             thread_.start()
-    
+
     def proxy_thread(self, client_socket, client_address):
 
         request = client_socket.recv(config['MAX_REQUEST_LEN'])
@@ -76,16 +91,21 @@ class Server:
             port = int(temp[port_pos + 1 : webserver_pos])
             webserver = temp[:port_pos]
 
+        val = socket.gethostbyname(webserver)
+    	if val in blocked_list:
+    		client_socket.send("Page Blocked")
+    		sys.exit(0)
+
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
         s.settimeout(config['CONNECTION_TIMEOUT'])
         s.connect((webserver, port))
         s.sendall(request)
 
         while True:
-            # receive data from web server
+
             data = s.recv(config['BUFFER_SIZE'])
             if (len(data) > 0):
-                client_socket.send(data) # send to browser/client
+	            client_socket.send(data)
             else:
                 break
 
@@ -119,6 +139,6 @@ class Server:
         	ltime = time.strptime(time.ctime(os.path.getmtime(path)), "%a %b %d %H:%M:%S %Y")
         	return path, ltime
     	else:
-    		return path, None	
+    		return path, None
 
 newserver = Server()
